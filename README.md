@@ -10,11 +10,13 @@ Only long-standing core functions are used.
 
 Minimize the compliance of a clamped beam under a vertical point load, subject to a volume constraint:
 
-```
-min   c(ρ) = Fᵀ u
-s.t.  K(ρ) u = F
-      Σ ρₑ / N ≤ V*          (volume fraction, default V* = 0.4)
-      0.001 ≤ ρₑ ≤ 1
+```math
+\begin{aligned}
+\min_{\rho} \quad & c(\rho) = \mathbf{F}^{\mathrm{T}} \mathbf{u} \\
+\text{s.t.} \quad & \mathbf{K}(\rho) \mathbf{u} = \mathbf{F} \\
+& \frac{1}{N} \sum_{e=1}^{N} \rho_e \le V^{\ast} \qquad (\text{default } V^{\ast} = 0.4) \\
+& 0.001 \le \rho_e \le 1
+\end{aligned}
 ```
 
 | Item | Setting |
@@ -23,15 +25,23 @@ s.t.  K(ρ) u = F
 | Elements | Bilinear Q4, plane stress, unit thickness, element size 1 |
 | Supports | Left edge fully clamped |
 | Load | Vertical point load at mid-height of the right edge (split over two nodes if the number of element rows is odd) |
-| Material | E₀ = 1, Eₘᵢₙ = 10⁻⁹, ν = 0.3 (dimensionless) |
+| Material | $E_0 = 1$, $E_{\min} = 10^{-9}$, $\nu = 0.3$ (dimensionless) |
 
 ## Method
 
-- **SIMP interpolation:** Eₑ = Eₘᵢₙ + ρₑᵖ (E₀ − Eₘᵢₙ), p = 3.
-- **Sensitivities:** ∂c/∂ρₑ = −p ρₑ^(p−1) (E₀ − Eₘᵢₙ) uₑᵀ Kₑ uₑ.
-- **Sensitivity filter** (mesh-independence): weights Hₑf = max(0, r_min − dist(e, f)), default r_min = 1.6 elements, built once as a sparse matrix.
-- **Optimality-criteria update** with bisection on the Lagrange multiplier, move limit 0.2, lower bound 0.001.
-- **Stopping criterion:** max |Δρ| < 0.01 after more than 15 iterations, or `maxIter`.
+- **SIMP interpolation:** $E_e = E_{\min} + \rho_e^{p}(E_0 - E_{\min})$, $p = 3$.
+
+- **Sensitivities:**
+
+  $$\frac{\partial c}{\partial \rho_e} = -p\rho_e^{p-1}(E_0 - E_{\min})\;\mathbf{u}_e^{\mathsf{T}}\mathbf{K}_e\mathbf{u}_e$$
+
+- **Sensitivity filter** (mesh-independence): weights $`H_{ef} = \max\big(0, r_{\min} - \mathrm{dist}(e,f)\big)`$, default $r_{\min} = 1.6$ elements, built once as a sparse matrix.
+
+- **Optimality-criteria update** with bisection on the Lagrange multiplier, move limit $0.2$, lower bound $0.001$.
+
+- **Stopping criterion:** $\max_e \lvert \Delta\rho_e \rvert < 0.01$ after more than 15 iterations, or `maxIter`.
+
+
 
 - ## Notebook structure
 
@@ -40,9 +50,9 @@ Evaluate the cells from top to bottom. All parameters are at the top of the firs
 | Cell | Content |
 |---|---|
 | 1 | Parameters, element stiffness matrix with self-tests, mesh and boundary conditions, assembly operators, filter, OC update, optimization loop, analysis of the final design |
-| 2 | Bending stiffness EI(x) per cross-section, plots: topology (density), EI(x) along the span, convergence history |
+| 2 | Bending stiffness $EI(x)$ per cross-section, plots: topology (density), $EI(x)$ along the span, convergence history |
 | 3 | STL export of the optimized design |
-| 4 | FE load test of the final design: deformed shape colored by σₓₓ, with an equilibrium check |
+| 4 | FE load test of the final design: deformed shape colored by $\sigma_{xx}$, with an equilibrium check |
 
 Cells 2–4 only depend on cell 1 and can be run independently of each other.
 
@@ -57,68 +67,66 @@ Cells 2–4 only depend on cell 1 and can be run independently of each other.
 | `maxIter` | 30 | Maximum number of iterations |
 | `move` | 0.2 | OC move limit |
 
+<img src="./pics/topology.png" alt="topology"  />
+
 ## Post-processing
 
-**Bending stiffness EI(x).** For every column of elements, the neutral axis is taken as the modulus-weighted centroid
+**Bending stiffness $EI(x)$.** For every column of elements, the neutral axis is taken as the modulus-weighted centroid
 
-```
-ȳ(x)  = Σⱼ Eⱼ yⱼ / Σⱼ Eⱼ
-EI(x) = Σⱼ Eⱼ ( 1/12 + (yⱼ − ȳ)² )
-```
+$$\bar y(x) = \frac{\sum_j E_jy_j}{\sum_j E_j}, \qquad EI(x) = \sum_j E_j\left(\frac{1}{12} + \big(y_j - \bar y\big)^2\right)$$
 
-with the SIMP stiffness Eⱼ of each element and unit element size. It is compared with the solid-beam reference E₀ n_y³/12. EI(x) is a geometric indicator computed from column sums; for truss-like topologies it is not the exact bending stiffness of the structure.
+with the SIMP stiffness $E_j$ of each element and unit element size. It is compared with the solid-beam reference $E_0n_y^3/12$. $EI(x)$ is a geometric indicator computed from column sums; for truss-like topologies it is not the exact bending stiffness of the structure.
 
-**FE load test (σₓₓ).** The FE solution of the final design is scaled to a chosen test force. Strains are evaluated at the element centre and the plane-stress normal stress is computed as
+<img src="./pics/stiffness.png" alt="local stiffness" width="70%"  />
 
-```
-σₓₓ = Eₑ / (1 − ν²) · (εₓₓ + ν ε_yy)
-```
+**FE load test ($\sigma_{xx}$).** The FE solution of the final design is scaled to a chosen test force. Strains are evaluated at the element centre and the plane-stress normal stress is computed as
 
-using the penalized element modulus. The deformed mesh is drawn with an adjustable magnification factor. As a check, the bending moment obtained by integrating σₓₓ over each cross-section is compared with the statically expected value P (L − x).
+$$\sigma_{xx} = \frac{E_e}{1-\nu^{2}}\big(\varepsilon_{xx} + \nu\varepsilon_{yy}\big)$$
 
-**STL export.** The density field is converted to an image, smoothed with a Gaussian filter (default radius 3), binarized at ρ = 0.5, meshed with `ImageMesh`, triangulated, extruded to the chosen thickness and exported as a closed `BoundaryMeshRegion` to STL. The file is written next to the notebook (or to the home directory if the notebook is unsaved). The STL volume is printed next to the density-based volume for comparison.
+using the penalized element modulus. The deformed mesh is drawn with an adjustable magnification factor. As a check, the bending moment obtained by integrating $\sigma_{xx}$ over each cross-section is compared with the statically expected value $P(L - x)$.
+
+<img src="./pics/fem.png" alt="FE results"  />
+
+
+
+**STL export.** The density field is converted to an image, smoothed with a Gaussian filter (default radius 3), binarized at $\rho = 0.5$, meshed with `ImageMesh`, triangulated, extruded to the chosen thickness and exported as a closed `BoundaryMeshRegion` to STL. The file is written next to the notebook (or to the home directory if the notebook is unsaved). The STL volume is printed next to the density-based volume for comparison.
+
+<img src="./pics/cad.png" alt="cad"  />
 
 ## Built-in checks
 
 The script prints the following when it runs:
 
 - symmetry of the element stiffness matrix `KE`,
-- `KE` against an independent 2 × 2 Gauss integration (deviation ~10⁻¹⁶),
+- `KE` against an independent $2 \times 2$ Gauss integration (deviation $\sim 10^{-16}$),
 - rigid-body rotation residuals of `KE` and of the assembled global matrix,
-- energy balance Σ Eₑ cₑ = Fᵀu,
-- section equilibrium of the σₓₓ field, M_num / M_ref, over 3 % to 85 % of the span.
+- energy balance $\sum_e E_ec_e = \mathbf{F}^{\mathsf{T}}\mathbf{u}$,
+- section equilibrium of the $\sigma_{xx}$ field, $M_{\text{num}} / M_{\text{ref}}$, over 3 % to 85 % of the span.
 
 
-<img src="./pics/convergence.jpg" alt="convergence"  width="80%" />
-
-<img src="./pics/topology.jpg" alt="topology"  />
-
-<img src="./pics/stiffness.jpg" alt="local stiffness" width="80%"  />
-
-<img src="./pics/fem.jpg" alt="FE results"  />
-
-<img src="./pics/cad.png" alt="cad"  />
 
 
 ## Reference results
 
-Default settings with a unit load (the compliance scales with P²):
+Default settings with a unit load (the compliance scales with $P^2$):
 
 | Quantity | Value |
 |---|---|
-| Compliance, uniform start ρ = 0.4 (iteration 1) | ≈ 1119 |
-| Compliance at convergence (57 iterations) | ≈ 139.8 |
-| Final volume fraction | ≈ 0.4000 |
-| Section equilibrium M_num / M_ref | mean 0.9996, range 0.9979 to 1.0007 |
+| Compliance, uniform start $\rho = 0.4$ (iteration 1) | $\approx 1119$ |
+| Compliance at convergence (57 iterations) | $\approx 139.8$ |
+| Final volume fraction | $\approx 0.4000$ |
+| Section equilibrium $M_{\text{num}} / M_{\text{ref}}$ | mean 0.9996, range 0.9979 to 1.0007 |
 
-With the default `maxIter = 30` the stopping criterion is not yet met (max |Δρ| ≈ 0.034); set `maxIter` to 60 or more to run to convergence.
+With the default `maxIter = 30` the stopping criterion is not yet met ($\max_e \lvert \Delta\rho_e \rvert \approx 0.034$); set `maxIter` to 60 or more to run to convergence.
+
+<img src="./pics/convergence.png" alt="convergence"  width="70%" />
 
 ## Limitations
 
 - 2D, single load case, compliance minimization with a volume constraint only.
 - Only a sensitivity filter is used: no projection filter, so intermediate densities remain; no robust formulation; no stress constraint.
-- All quantities are dimensionless (E₀ = 1, element size 1).
-- The σₓₓ field uses the penalized (SIMP) element modulus.
+- All quantities are dimensionless ($E_0 = 1$, element size 1).
+- The $\sigma_{xx}$ field uses the penalized (SIMP) element modulus.
 
 ## References
 
