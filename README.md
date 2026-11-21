@@ -59,7 +59,7 @@ With the default `maxIter = 30` the stopping criterion is not yet met (max |Δρ
 ## Limitations
 
 - 2D, single load case, compliance minimization with a volume constraint only.
-- Only a sensitivity filter is used: no projection filter, so intermediate densities remain; no robust formulation; no stress constraint (stresses are evaluated after the optimization only).
+- Only a sensitivity filter is used: no projection filter, so intermediate densities remain; no robust formulation; no stress constraint.
 - All quantities are dimensionless (E₀ = 1, element size 1).
 - The σₓₓ field uses the penalized (SIMP) element modulus.
 
