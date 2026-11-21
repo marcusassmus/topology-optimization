@@ -33,6 +33,61 @@ s.t.  K(ρ) u = F
 - **Optimality-criteria update** with bisection on the Lagrange multiplier, move limit 0.2, lower bound 0.001.
 - **Stopping criterion:** max |Δρ| < 0.01 after more than 15 iterations, or `maxIter`.
 
+- ## Notebook structure
+
+Evaluate the cells from top to bottom. All parameters are at the top of the first cell.
+
+| Cell | Content |
+|---|---|
+| 1 | Parameters, element stiffness matrix with self-tests, mesh and boundary conditions, assembly operators, filter, OC update, optimization loop, analysis of the final design |
+| 2 | Bending stiffness EI(x) per cross-section, plots: topology (density), EI(x) along the span, convergence history |
+| 3 | STL export of the optimized design |
+| 4 | FE load test of the final design: deformed shape colored by σₓₓ, with an equilibrium check |
+
+Cells 2–4 only depend on cell 1 and can be run independently of each other.
+
+### Main parameters
+
+| Symbol | Default | Meaning |
+|---|---|---|
+| `nelx` | 100 | Elements along x (`nely = Round[2 nelx/5]`) |
+| `volfrac` | 0.4 | Target volume fraction |
+| `penal` | 3 | SIMP exponent |
+| `rmin` | 1.6 | Filter radius in elements |
+| `maxIter` | 30 | Maximum number of iterations |
+| `move` | 0.2 | OC move limit |
+
+## Post-processing
+
+**Bending stiffness EI(x).** For every column of elements, the neutral axis is taken as the modulus-weighted centroid
+
+```
+ȳ(x)  = Σⱼ Eⱼ yⱼ / Σⱼ Eⱼ
+EI(x) = Σⱼ Eⱼ ( 1/12 + (yⱼ − ȳ)² )
+```
+
+with the SIMP stiffness Eⱼ of each element and unit element size. It is compared with the solid-beam reference E₀ n_y³/12. EI(x) is a geometric indicator computed from column sums; for truss-like topologies it is not the exact bending stiffness of the structure.
+
+**FE load test (σₓₓ).** The FE solution of the final design is scaled to a chosen test force. Strains are evaluated at the element centre and the plane-stress normal stress is computed as
+
+```
+σₓₓ = Eₑ / (1 − ν²) · (εₓₓ + ν ε_yy)
+```
+
+using the penalized element modulus. The deformed mesh is drawn with an adjustable magnification factor. As a check, the bending moment obtained by integrating σₓₓ over each cross-section is compared with the statically expected value P (L − x).
+
+**STL export.** The density field is converted to an image, smoothed with a Gaussian filter (default radius 3), binarized at ρ = 0.5, meshed with `ImageMesh`, triangulated, extruded to the chosen thickness and exported as a closed `BoundaryMeshRegion` to STL. The file is written next to the notebook (or to the home directory if the notebook is unsaved). The STL volume is printed next to the density-based volume for comparison.
+
+## Built-in checks
+
+The script prints the following when it runs:
+
+- symmetry of the element stiffness matrix `KE`,
+- `KE` against an independent 2 × 2 Gauss integration (deviation ~10⁻¹⁶),
+- rigid-body rotation residuals of `KE` and of the assembled global matrix,
+- energy balance Σ Eₑ cₑ = Fᵀu,
+- section equilibrium of the σₓₓ field, M_num / M_ref, over 3 % to 85 % of the span.
+
 
 <img src="./pics/convergence.jpg" alt="convergence"  width="80%" />
 
@@ -41,6 +96,8 @@ s.t.  K(ρ) u = F
 <img src="./pics/stiffness.jpg" alt="local stiffness" width="80%"  />
 
 <img src="./pics/fem.jpg" alt="FE results"  />
+
+<img src="./pics/cad.png" alt="cad"  />
 
 
 ## Reference results
