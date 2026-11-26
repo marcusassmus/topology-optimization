@@ -121,6 +121,10 @@ With the default `maxIter = 30` the stopping criterion is not yet met ($\max_e \
 
 <img src="./pics/convergence.png" alt="convergence"  width="70%" />
 
+## MMA notebook
+
+The code is shown [code](./docs/code.md).
+
 ## Limitations
 
 - 2D, single load case, compliance minimization with a volume constraint only.
