@@ -123,7 +123,7 @@ With the default `maxIter = 30` the stopping criterion is not yet met ($\max_e \
 
 ## MMA notebook
 
-The code is shown [code](./docs/code.md).
+The code is shown [here](./docs/code.md).
 
 ## Limitations
 
